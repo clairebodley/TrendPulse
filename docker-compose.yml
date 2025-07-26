@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: trendpulse
+      POSTGRES_USER: trendpulse
+      POSTGRES_PASSWORD: trendpulse123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://trendpulse:trendpulse123@postgres:5432/trendpulse
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN}
+      - TWITTER_BEARER_TOKEN=${TWITTER_BEARER_TOKEN}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./backend:/app
+
+  celery-worker:
+    build: ./backend
+    command: celery -A main.celery worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://trendpulse:trendpulse123@postgres:5432/trendpulse
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN}
+      - TWITTER_BEARER_TOKEN=${TWITTER_BEARER_TOKEN}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./backend:/app
+
+  celery-beat:
+    build: ./backend
+    command: celery -A main.celery beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://trendpulse:trendpulse123@postgres:5432/trendpulse
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BUFFER_ACCESS_TOKEN=${BUFFER_ACCESS_TOKEN}
+      - TWITTER_BEARER_TOKEN=${TWITTER_BEARER_TOKEN}
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
