@@ -1,5 +1,5 @@
 from celery import shared_task
-from services.social_apis import twitter_service, linkedin_service, instagram_service
+from services.social_media_service import social_media_service
 from database import SessionLocal
 from models import Trend, AgentLog
 import random
@@ -10,16 +10,8 @@ def monitor_trends():
     """Monitor trending topics across all platforms"""
     db = SessionLocal()
     try:
-        all_trends = []
-        
-        # Fetch trends from all platforms
-        twitter_trends = twitter_service.get_trending_topics()
-        linkedin_trends = linkedin_service.get_trending_topics()
-        instagram_trends = instagram_service.get_trending_topics()
-        
-        all_trends.extend(twitter_trends)
-        all_trends.extend(linkedin_trends)
-        all_trends.extend(instagram_trends)
+        # Fetch trends from all platforms using the unified service
+        all_trends = social_media_service.get_all_trending_topics()
         
         # Save trends to database
         for trend_data in all_trends:

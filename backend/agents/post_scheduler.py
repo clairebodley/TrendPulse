@@ -1,5 +1,5 @@
 from celery import shared_task
-from services.buffer_service import buffer_service
+from services.social_media_service import social_media_service
 from database import SessionLocal
 from models import Post, AgentLog
 from datetime import datetime
@@ -18,23 +18,22 @@ def schedule_pending_posts():
         posts_scheduled = 0
         
         for post in pending_posts:
-            # Get Buffer profile for platform
-            profile = buffer_service.get_profile_by_service(post.platform)
+            # Post directly to social media platform
+            if post.platform == "twitter":
+                result = social_media_service.twitter.post_tweet(post.content)
+            elif post.platform == "linkedin":
+                result = social_media_service.linkedin.post_update(post.content)
+            elif post.platform == "instagram":
+                result = social_media_service.instagram.post_caption(post.content)
+            else:
+                result = {"error": f"Unsupported platform: {post.platform}"}
             
-            if profile:
-                # Schedule post via Buffer
-                result = buffer_service.create_post(
-                    profile_ids=[profile["id"]],
-                    text=post.content,
-                    scheduled_at=post.scheduled_for.isoformat()
-                )
-                
-                if "success" in result or "id" in result:
-                    post.status = "scheduled"
-                    post.buffer_id = result.get("id")
-                    posts_scheduled += 1
-                else:
-                    post.status = "failed"
+            if result.get("success"):
+                post.status = "posted"
+                post.posted_at = datetime.utcnow()
+                posts_scheduled += 1
+            else:
+                post.status = "failed"
         
         db.commit()
         
@@ -79,28 +78,25 @@ def schedule_post(post_data: dict):
         db.add(post)
         db.commit()
         
-        # Get Buffer profile
-        profile = buffer_service.get_profile_by_service(post_data["platform"])
-        
-        if profile:
-            # Schedule via Buffer
-            result = buffer_service.create_post(
-                profile_ids=[profile["id"]],
-                text=post_data["content"],
-                scheduled_at=post_data["scheduled_for"]
-            )
-            
-            if "success" in result or "id" in result:
-                post.status = "scheduled"
-                post.buffer_id = result.get("id")
-                db.commit()
-                return {"status": "success", "post_id": post.id}
-            else:
-                post.status = "failed"
-                db.commit()
-                return {"status": "error", "message": "Failed to schedule via Buffer"}
+        # Post directly to social media platform
+        if post_data["platform"] == "twitter":
+            result = social_media_service.twitter.post_tweet(post_data["content"])
+        elif post_data["platform"] == "linkedin":
+            result = social_media_service.linkedin.post_update(post_data["content"])
+        elif post_data["platform"] == "instagram":
+            result = social_media_service.instagram.post_caption(post_data["content"])
         else:
-            return {"status": "error", "message": f"No Buffer profile found for {post_data['platform']}"}
+            result = {"error": f"Unsupported platform: {post_data['platform']}"}
+        
+        if result.get("success"):
+            post.status = "posted"
+            post.posted_at = datetime.utcnow()
+            db.commit()
+            return {"status": "success", "post_id": post.id}
+        else:
+            post.status = "failed"
+            db.commit()
+            return {"status": "error", "message": f"Failed to post: {result.get('error', 'Unknown error')}"}
             
     except Exception as e:
         db.rollback()

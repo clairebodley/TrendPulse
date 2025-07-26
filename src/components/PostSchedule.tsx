@@ -1,12 +1,13 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Linkedin, Instagram, Twitter, Edit, Trash2, Send } from "lucide-react";
+import { Calendar, Clock, Linkedin, Instagram, Twitter, Edit, Trash2, Send, Music, Youtube, MessageSquare } from "lucide-react";
 
 interface ScheduledPost {
   id: string;
   content: string;
-  platform: "linkedin" | "instagram" | "twitter";
+  platform: "linkedin" | "instagram" | "twitter" | "tiktok" | "youtube" | "reddit";
   scheduledFor: string;
   status: "pending" | "posting" | "posted" | "failed";
   topic: string;
@@ -15,58 +16,24 @@ interface ScheduledPost {
 }
 
 export const PostSchedule = () => {
-  const scheduledPosts: ScheduledPost[] = [
-    {
-      id: "1",
-      content: "🏥 AI is revolutionizing healthcare diagnostics! From early disease detection to personalized treatment plans...",
-      platform: "linkedin",
-      scheduledFor: "Today, 2:00 PM",
-      status: "pending",
-      topic: "#AIInHealthcare",
-      variant: "A",
-      bufferPostId: "buf_12345"
-    },
-    {
-      id: "2",
-      content: "🌱✨ Sustainable technology isn't just a trend—it's our future! From solar innovations to eco-friendly apps...",
-      platform: "instagram", 
-      scheduledFor: "Today, 6:00 PM",
-      status: "pending",
-      topic: "#SustainableTech",
-      variant: "B",
-      bufferPostId: "buf_12346"
-    },
-    {
-      id: "3",
-      content: "🚀 The future is here! New tech innovations are reshaping how we work, connect, and solve challenges...",
-      platform: "twitter",
-      scheduledFor: "Tomorrow, 9:00 AM", 
-      status: "pending",
-      topic: "#TechInnovation",
-      variant: "A",
-      bufferPostId: "buf_12347"
-    },
-    {
-      id: "4",
-      content: "🏠💼 Remote work has transformed from emergency measure to strategic advantage. Companies embracing...",
-      platform: "linkedin",
-      scheduledFor: "Tomorrow, 11:00 AM",
-      status: "posting",
-      topic: "#RemoteWork", 
-      variant: "A",
-      bufferPostId: "buf_12348"
-    },
-    {
-      id: "5",
-      content: "🎯 Digital marketing in 2024: It's all about authentic connections and value-driven content...",
-      platform: "instagram",
-      scheduledFor: "Yesterday, 3:00 PM",
-      status: "posted",
-      topic: "#DigitalMarketing",
-      variant: "B",
-      bufferPostId: "buf_12349"
-    }
-  ];
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/posts")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch scheduled posts");
+        return res.json();
+      })
+      .then((data) => {
+        setScheduledPosts(data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const statusColors = {
     pending: "bg-warning/20 text-warning",
@@ -78,13 +45,19 @@ export const PostSchedule = () => {
   const platformIcons = {
     linkedin: Linkedin,
     instagram: Instagram, 
-    twitter: Twitter
+    twitter: Twitter,
+    tiktok: Music,
+    youtube: Youtube,
+    reddit: MessageSquare
   };
 
   const platformColors = {
     linkedin: "text-linkedin bg-linkedin/20",
     instagram: "text-instagram bg-instagram/20",
-    twitter: "text-twitter bg-twitter/20"
+    twitter: "text-twitter bg-twitter/20",
+    tiktok: "text-tiktok bg-tiktok/20",
+    youtube: "text-youtube bg-youtube/20",
+    reddit: "text-reddit bg-reddit/20"
   };
 
   const getStatusIcon = (status: string) => {
@@ -113,6 +86,8 @@ export const PostSchedule = () => {
         </div>
       </div>
 
+      {loading && <div>Loading scheduled posts...</div>}
+      {error && <div className="text-destructive">{error}</div>}
       {/* Schedule Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card className="bg-gradient-card border-border">

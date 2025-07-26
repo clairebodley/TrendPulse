@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,10 @@ import {
   Twitter,
   Play,
   Pause,
-  Activity
+  Activity,
+  Music, // TikTok icon
+  Youtube, // YouTube icon
+  MessageSquare // Reddit icon
 } from "lucide-react";
 import { AgentCard } from "./AgentCard";
 import { TrendsList } from "./TrendsList";
@@ -26,10 +29,47 @@ import { PostSchedule } from "./PostSchedule";
 export const TrendPulseDashboard = () => {
   const [systemStatus, setSystemStatus] = useState<"active" | "paused">("active");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [platforms, setPlatforms] = useState<any[]>([]);
+  const [loadingPlatforms, setLoadingPlatforms] = useState(true);
+  const [platformError, setPlatformError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setLoadingPlatforms(true);
+    Promise.all([
+      fetch("/api/social/status").then(res => res.json()),
+      fetch("/api/social/trends").then(res => res.json())
+    ])
+      .then(([status, trends]) => {
+        // Count posts per platform from trends
+        const platformCounts: Record<string, number> = {};
+        trends.forEach((trend: any) => {
+          platformCounts[trend.platform] = (platformCounts[trend.platform] || 0) + 1;
+        });
+        // Compose platform info
+        const allPlatforms = [
+          { name: "LinkedIn", key: "linkedin", icon: Linkedin, color: "linkedin" },
+          { name: "Instagram", key: "instagram", icon: Instagram, color: "instagram" },
+          { name: "Twitter", key: "twitter", icon: Twitter, color: "twitter" },
+          { name: "TikTok", key: "tiktok", icon: Music, color: "tiktok" },
+          { name: "YouTube", key: "youtube", icon: Youtube, color: "youtube" },
+          { name: "Reddit", key: "reddit", icon: MessageSquare, color: "reddit" }
+        ];
+        setPlatforms(
+          allPlatforms.map(p => ({
+            ...p,
+            posts: platformCounts[p.key] || 0,
+            engagement: status[p.key]?.configured ? "+Active" : "Not Connected"
+          }))
+        );
+        setPlatformError(null);
+      })
+      .catch((err) => setPlatformError(err.message))
+      .finally(() => setLoadingPlatforms(false));
   }, []);
 
   const agents = [
@@ -85,12 +125,6 @@ export const TrendPulseDashboard = () => {
     }
   ];
 
-  const platforms = [
-    { name: "LinkedIn", icon: Linkedin, color: "linkedin", posts: 8, engagement: "+45%" },
-    { name: "Instagram", icon: Instagram, color: "instagram", posts: 12, engagement: "+38%" },
-    { name: "Twitter", icon: Twitter, color: "twitter", posts: 15, engagement: "+22%" }
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -127,6 +161,8 @@ export const TrendPulseDashboard = () => {
         </div>
 
         {/* Platform Overview */}
+        {loadingPlatforms && <div>Loading platform status...</div>}
+        {platformError && <div className="text-destructive">{platformError}</div>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {platforms.map((platform) => (
             <Card key={platform.name} className="bg-gradient-card border-border">
@@ -138,7 +174,7 @@ export const TrendPulseDashboard = () => {
                     </div>
                     <div>
                       <p className="font-medium text-foreground">{platform.name}</p>
-                      <p className="text-sm text-muted-foreground">{platform.posts} posts today</p>
+                      <p className="text-sm text-muted-foreground">{platform.posts} trends</p>
                     </div>
                   </div>
                   <Badge variant="secondary" className="bg-success/20 text-success">
